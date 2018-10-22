@@ -1,0 +1,144 @@
+/**
+ * @file
+ * FolderShare user interface styling.
+ *
+ * This CSS file is included on pages that include the main, search, or
+ * navigate user interface forms, which precede a folder contents table.
+ */
+
+/*-----------------------------------------------------------------------
+ *
+ * Main UI:
+ * - Command menu button.
+ * - Command menu shown via the menu button.
+ *
+ *-----------------------------------------------------------------------*/
+
+/*
+ * Remove default spacing around the main form and make it an inline
+ * block so that it flows into the toolbar.
+ */
+.foldershare-root-folder-groups-table-menu-form,
+.foldershare-folder-table-menu-form {
+  display: inline-block;
+  margin-bottom: 0;
+}
+
+/*
+ * Give the menu button a border, shadow and icon. Hide the menu button
+ * text since we're using an icon.
+ */
+.foldershare-root-folder-groups-table-mainmenu-button,
+.foldershare-folder-table-mainmenu-button {
+  border-top: 1px solid #ddd;
+  border-left: 1px solid #ccc;
+  border-right: 1px solid #bbb;
+  border-bottom: 1px solid #aaa;
+  box-shadow: 1px 1px 2px 0px rgba(0,0,0,0.1);
+  border-radius: 4px;
+  width: 37px;
+  height: 24px;
+  background: #fff url("../images/menu-icon.normal.27x16.png") no-repeat center center !important;
+}
+.foldershare-root-folder-groups-table-mainmenu-button:hover,
+.foldershare-folder-table-mainmenu-button:hover {
+  background: #fff url("../images/menu-icon.hover.27x16.png") no-repeat center center !important;
+}
+.foldershare-root-folder-groups-table-mainmenu-button span,
+.foldershare-folder-table-mainmenu-button span {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  /*
+   * Use a larger finger-sized button on smaller screens.
+   */
+  .foldershare-root-folder-groups-table-mainmenu-button,
+  .foldershare-folder-table-mainmenu-button {
+    width: 66px;
+    height: 44px;
+  }
+}
+
+/*
+ * Give the menu a border and shadow.
+ */
+.foldershare-root-folder-groups-table-mainmenu,
+.foldershare-root-folder-groups-table-mainmenu.ui-menu,
+.foldershare-root-folder-groups-table-mainmenu.ui-widget,
+.foldershare-root-folder-groups-table-mainmenu.ui-widget-content,
+.foldershare-root-folder-groups-table-contextmenu,
+.foldershare-root-folder-groups-table-contextmenu.ui-menu,
+.foldershare-root-folder-groups-table-contextmenu.ui-widget,
+.foldershare-root-folder-groups-table-contextmenu.ui-widget-content,
+.foldershare-folder-table-mainmenu,
+.foldershare-folder-table-mainmenu.ui-menu,
+.foldershare-folder-table-mainmenu.ui-widget,
+.foldershare-folder-table-mainmenu.ui-widget-content,
+.foldershare-folder-table-contextmenu,
+.foldershare-folder-table-contextmenu.ui-menu,
+.foldershare-folder-table-contextmenu.ui-widget,
+.foldershare-folder-table-contextmenu.ui-widget-content {
+  box-shadow: 1px 1px 2px 0px rgba(0,0,0,0.25);
+  line-height: 1.2em;
+  /* Override Drupal's theme.css and give the menu an opaque background. */
+  background: #fff;
+  /* Override Drupal's theme.css to use the site's font for menus. */
+  font-family: inherit;
+  font-size: inherit;
+  /* Override Drupal's theme.css and give the menu a border. */
+  border-top: 1px solid #ddd;
+  border-left: 1px solid #ccc;
+  border-right: 1px solid #bbb;
+  border-bottom: 1px solid #aaa;
+  border-radius: 2px;
+  /* Override Drupal's style.css to get rid of huge padding. */
+  padding: 0;
+}
+
+.foldershare-root-folder-groups-table-mainmenu,
+.foldershare-root-folder-groups-table-contextmenu,
+.foldershare-folder-table-mainmenu,
+.foldershare-folder-table-contextmenu {
+  /* Prepare the menu for positioning relative to the menu button */
+  position: absolute;
+  z-index: 1000;
+}
+
+/*
+ * Override menu.css so that menu items don't change their margins
+ * and borders when they get the focus. This causes the menu to
+ * jump about in an odd way.
+ */
+.foldershare-root-folder-groups-table-mainmenu .ui-state-focus,
+.foldershare-root-folder-groups-table-mainmenu .ui-state-active,
+.foldershare-root-folder-groups-table-contextmenu .ui-state-focus,
+.foldershare-root-folder-groups-table-contextmenu .ui-state-active,
+.foldershare-folder-table-mainmenu .ui-state-focus,
+.foldershare-folder-table-mainmenu .ui-state-active,
+.foldershare-folder-table-contextmenu .ui-state-focus,
+.foldershare-folder-table-contextmenu .ui-state-active {
+  margin: 0;
+  border: none;
+}
+
+/*
+ * Clean up menu item spacing.
+ */
+.foldershare-root-folder-groups-table-mainmenu .ui-menu-item,
+.foldershare-root-folder-groups-table-contextmenu .ui-menu-item,
+.foldershare-folder-table-mainmenu .ui-menu-item,
+.foldershare-folder-table-contextmenu .ui-menu-item {
+  border: none;
+  white-space: nowrap;
+  list-style: none;
+  list-style-image: none;
+  padding: 0;
+}
+.foldershare-root-folder-groups-table-mainmenu .ui-menu-item-wrapper,
+.foldershare-root-folder-groups-table-contextmenu .ui-menu-item-wrapper,
+.foldershare-folder-table-mainmenu .ui-menu-item-wrapper,
+.foldershare-folder-table-contextmenu .ui-menu-item-wrapper {
+  padding-left: 10px;
+  padding-right: 10px;
+}

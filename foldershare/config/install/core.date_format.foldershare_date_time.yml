@@ -1,0 +1,13 @@
+langcode: en
+status: true
+dependencies:
+  enforced:
+    module:
+      - foldershare
+  module:
+    - foldershare
+    - drupal:datetime
+id: foldershare_date_time
+label: 'FolderShare date & time'
+locked: false
+pattern: 'M j, Y \a\t g:i A'
