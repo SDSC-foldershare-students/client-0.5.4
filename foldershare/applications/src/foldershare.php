@@ -1940,6 +1940,245 @@ function runStat(FolderShareConnect $server, array $options) {
 
   return TRUE;
 }
+/**
+ * Clears the screen
+ *
+ * This method supports flags.
+ *
+ * @param \FolderShare\FolderShareConnect $server
+ *   The server connection.
+ * @param array $options
+ *   The command-line options array.
+ *
+ * @return bool
+ *   Returns TRUE on success, and FALSE on failure. On failure an error
+ *   message has already been output.
+ *
+ * @internal
+ * Linux, BSD, and macOS "clear" don't support any flags.
+ */
+function runCl(FolderShareConnect $server, array $options) {
+  system('clear');
+}
+
+/**
+ * Searches for files and folders.
+ *
+ * This command emulates the Linux/macOS/BSD "find" command.
+ *
+ * This method supports the following flags:
+ * | Flag   | Meaning                                          |
+ * | ------ | ------------------------------------------------ |
+ * | --name | The name of a file/folder to search for.         |
+ * | -R     | Search recursively for files from current Dir.   |
+ * | --type | Specify which type (file/folder) to look for     |
+ *
+ *
+ * @param \FolderShare\FolderShareConnect $server
+ *   The server connection.
+ * @param array $options
+ *   The command-line options array.
+ *
+ * @return bool
+ *   Returns TRUE on success, and FALSE on failure. On failure an error
+ *   message has already been output.
+ *
+ * @internal
+ * Linux support the following flags (incomplete):
+ * | Flag   | Meaning                                          |
+ * | ------ | ------------------------------------------------ |
+ * | -P     | Never follow symbolic links.                     |
+ * | -L     | Follow symbolic links.                           |
+ * | -H     | Do not follow symbolic links                     |
+ * | -D     | Print diagnostic information                     |
+ * | -Olevel| Enables query optimisation                       |
+ * | -warn  | Turn warning messages on                         |
+ * | -nowarn| Turn warning messages of                         |
+ * | -depth | Process each directory's content before directory|
+ * | -help  | Print a summary of the command-line usage of find|
+ * | -xdev  | Don't descend directories on other filesystems.  |
+ * | -v     | Print the find version number and exit.          |
+ * | -name  | Base of file name matches shell patterns         |
+ * | -type  | File is of type : b (block), c (character), etc. |
+ */
+function runFind(FolderShareConnect $server, array $options) {
+  $recurse = FALSE;
+  $name = '';
+  $remotePath = [];
+  $type = '';
+  $foundOutput = [];
+  $length = count($options['command']);
+  //parse flags & set options (recurse, type, etc.)
+  for( $i = 1; $i < $length; $i++) {
+    $element = $options['command'][$i];
+    switch ($element) {
+      case '--type':
+        if($options['command'][$i+1] === 'file') {
+          $type = 'file';
+        }
+        if($options['command'][$i+1] === 'folder') {
+          $type = 'folder';
+        }
+        if($options['command'][$i+1] === 'rootfolder') {
+          $type = 'rootFolder';
+        }
+        $i++;
+        break;
+      case '-R':
+        $recurse = TRUE;
+        break;
+      case '--name':
+        $name = $options['command'][$i+1];
+        $i++;
+        break;
+      default:
+        $remotePaths[] = $options['command'][$i];
+    }
+  }
+  //search through file directory
+  while (empty($remotePaths) === FALSE) {
+    //check the next path (helps with recursion)
+    $remotePath = array_shift($remotePaths);
+
+    // Get the list of files in path
+    try {
+      switch ($remotePath) {
+        case '/':
+        case '/private':
+          $response = $server->getRootFolders('private');
+          break;
+
+        case '/public':
+          $response = $server->getRootFolders('public');
+          break;
+
+        case '/shared':
+          $response = $server->getRootFolders('shared');
+          break;
+
+        default:
+          $response = $server->getDescendants($remotePath);
+          break;
+      }
+    }
+    catch (\Exception $e) {
+      $commandName = reset($options['command']);
+      print("$commandName: " . $e->getMessage() . "\n");
+      return FALSE;
+    }
+    //search for matching output from results
+    if (empty($response) === FALSE) {
+      foreach( $response as $r) {
+        if (empty($name) && empty($type)) {
+          $foundOutput[] = $r;
+        }
+        else {
+          if (procWildCards($name, $r['name']) && empty($type)) {
+            $foundOutput[] = $r;
+          }
+          if($r['kind'] === $type && empty($name)) {
+            $foundOutput[] = $r;
+          }
+          if ($r['kind'] === $type && $r['name'] === $name) {
+            $foundOutput[] = $r;
+          }
+        }
+      }
+    }
+    // Update the paths array by adding child paths to the front.
+    if ($recurse === TRUE) {
+      $recursePaths = [];
+      if (is_array($response) === TRUE) {
+        // Loop through the response and create a path for each folder item.
+        foreach ($response as $r) {
+          if (isset($r['path']) === TRUE && isset($r['kind']) === TRUE) {
+            $k = $r['kind'];
+            if ($k === 'folder' || $k === 'rootfolder') {
+              if(substr($remotePath, -1) === "/") {
+                $recursePaths[] = $remotePath . $r['name'];
+              }
+              else {
+                $recursePaths[] = $remotePath . "/" . $r['name'];
+              }
+            }
+          }
+        }
+      }
+
+      // Add recursion paths to the front of the path list.
+      // This causes us to do a depth-first traversal.
+      $remotePaths = array_merge($recursePaths,$remotePaths);
+
+    }
+  }
+  //set printing patterns
+  $formatFlags = [];
+  $formatFlags[] = '-l';
+  //print response
+  switch ($options['format']) {
+    case 'linux':
+      print(FolderShareFormat::formatAsLinuxLs($foundOutput, $formatFlags));
+      break;
+    case 'text':
+      print(FolderShareFormat::formatAsText($foundOutput));
+      break;
+    default:
+      print_r($response);
+    }
+    return TRUE;
+}
+
+function procWildCards($withStars, $withoutStars)
+{
+ $stars = strlen($withStars); //m
+ $noStars = strlen($withoutStars); //n
+
+ //cases that don't require any other work
+ if ($stars == 0 && $noStars == 0)
+   return TRUE;
+ if($withStars == $withoutStars)
+   return TRUE;
+ $lookup = array();
+ //create a n x m
+ //rows 0 to n
+ for( $i = 0; $i < $noStars+1; $i++)
+ {
+   //columns 0 to m
+   $lookup[] = array_fill(0,$stars+1,FALSE);
+ }
+
+  //two empty strings match
+ $lookup[0][0] = TRUE;
+ //initialize the lookup array
+ for ( $i = 1; $i < $stars+1; $i++)
+ {
+   if ($withStars[$i-1] == "*")
+     $lookup[0][$i] = $lookup[0][$i-1];
+ }
+ //fill the table
+ for ($i = 1; $i<=$noStars; $i++)
+ {
+   for($j = 1; $j<=$stars;$j++)
+   {
+     //note -1 is there because strings are 0 indexed
+
+     //
+     if($withStars[$j-1] == "*")
+       $lookup[$i][$j] = $lookup[$i-1][$j] || $lookup[$i][$j-1];
+     else
+     {
+       if($withStars[$j-1] == $withoutStars[$i-1])
+         $lookup[$i][$j] = $lookup[$i-1][$j-1];
+       else {
+         $lookup[$i][$j] = FALSE;
+       }
+     }
+   }
+ }
+ //return whether or not the strings match
+ return $lookup[$noStars][$stars];
+}
+
 
 /**
  * Prints a list of files and folders.
@@ -2080,131 +2319,136 @@ function runStat(FolderShareConnect $server, array $options) {
  * | -w     | Force raw printing of non-printable characters.  |
  * | -W     | Show whiteouts when scanning directories.        |
  */
-function runLs(FolderShareConnect $server, array $options) {
-  //
-  // Parse options
-  // -------------
-  // Synonyms have already been mapped to primary flag names.
-  $recurse = FALSE;
-  $formatFlags = [];
+ function runLs(FolderShareConnect $server, array $options) {
+   //
+   // Parse options
+   // -------------
+   // Synonyms have already been mapped to primary flag names.
+   $recurse = FALSE;
+   $formatFlags = [];
 
-  foreach ($options['flags'] as $flagName) {
-    switch ($flagName) {
-      case '-d':
-        $recurse = FALSE;
-        break;
+   foreach ($options['flags'] as $flagName) {
+     switch ($flagName) {
+       case '-d':
+         $recurse = FALSE;
+         break;
 
-      case '-R':
-        $recurse = TRUE;
-        break;
+       case '-R':
+         $recurse = TRUE;
+         break;
 
-      case '-F':
-      case '-i':
-      case '-l':
-      case '-s':
-      case '-S':
-      case '-t':
-        $formatFlags[] = $flagName;
-        break;
-    }
-  }
+       case '-F':
+       case '-i':
+       case '-l':
+       case '-s':
+       case '-S':
+       case '-t':
+         $formatFlags[] = $flagName;
+         break;
+     }
+   }
 
-  //
-  // Validate
-  // --------
-  // If there are no paths given, default to '/'.
-  $remotePaths = $options['paths'];
-  if (empty($remotePaths) === TRUE) {
-    $remotePaths = ['/'];
-  }
+   //
+   // Validate
+   // --------
+   // If there are no paths given, default to '/'.
+   $remotePaths = $options['paths'];
+   if (empty($remotePaths) === TRUE) {
+     $remotePaths = ['/'];
+   }
 
-  if ($recurse === TRUE && $options['format'] !== 'linux') {
-    $commandName = reset($options['command']);
-    print("$commandName: Recursive lists must use a 'linux' output format.\n");
-    return FALSE;
-  }
+   if ($recurse === TRUE && $options['format'] !== 'linux') {
+     $commandName = reset($options['command']);
+     print("$commandName: Recursive lists must use a 'linux' output format.\n");
+     return FALSE;
+   }
 
-  //
-  // Execute
-  // -------
-  // Get a list of entities. Format the response using the flags, if any.
-  while (empty($remotePaths) === FALSE) {
-    $remotePath = array_shift($remotePaths);
+   //
+   // Execute
+   // -------
+   // Get a list of entities. Format the response using the flags, if any.
+   while (empty($remotePaths) === FALSE) {
+     $remotePath = array_shift($remotePaths);
 
-    if ($recurse === TRUE) {
-      print("$remotePath:\n");
-    }
+     if ($recurse === TRUE) {
+       print("$remotePath:\n");
+     }
 
-    // Get the list.
-    try {
-      switch ($remotePath) {
-        case '/':
-        case '/private':
-          $response = $server->getRootFolders('private');
-          break;
+     // Get the list.
+     try {
+       switch ($remotePath) {
+         case '/':
+         case '/private':
+           $response = $server->getRootFolders('private');
+           break;
 
-        case '/public':
-          $response = $server->getRootFolders('public');
-          break;
+         case '/public':
+           $response = $server->getRootFolders('public');
+           break;
 
-        case '/shared':
-          $response = $server->getRootFolders('shared');
-          break;
+         case '/shared':
+           $response = $server->getRootFolders('shared');
+           break;
 
-        default:
-          $response = $server->getDescendants($remotePath);
-          break;
-      }
-    }
-    catch (\Exception $e) {
-      $commandName = reset($options['command']);
-      print("$commandName: " . $e->getMessage() . "\n");
-      return FALSE;
-    }
+         default:
+           $response = $server->getDescendants($remotePath);
+           break;
+       }
+     }
+     catch (\Exception $e) {
+       $commandName = reset($options['command']);
+       print("$commandName: " . $e->getMessage() . "\n");
+       return FALSE;
+     }
 
-    // Print the response.
-    if (empty($response) === FALSE) {
-      switch ($options['format']) {
-        case 'linux':
-          print(FolderShareFormat::formatAsLinuxLs($response, $formatFlags));
-          break;
+     // Print the response.
+     if (empty($response) === FALSE) {
+       switch ($options['format']) {
+         case 'linux':
+           print(FolderShareFormat::formatAsLinuxLs($response, $formatFlags));
+           break;
 
-        case 'text':
-          print(FolderShareFormat::formatAsText($response));
-          break;
+         case 'text':
+           print(FolderShareFormat::formatAsText($response));
+           break;
 
-        default:
-          print_r($response);
-      }
-    }
+         default:
+           print_r($response);
+       }
+     }
 
-    // Update the paths array by adding child paths to the front.
-    if ($recurse === TRUE) {
-      $recursePaths = [];
-      if (is_array($response) === TRUE) {
-        // Loop through the response and create a path for each folder item.
-        foreach ($response as $r) {
-          if (isset($r['path']) === TRUE && isset($r['kind']) === TRUE) {
-            $k = $r['kind'];
-            if ($k === 'folder' || $k === 'rootfolder') {
-              $recursePaths[] = $r['path'];
-            }
-          }
-        }
-      }
+     // Update the paths array by adding child paths to the front.
+     if ($recurse === TRUE) {
+       $recursePaths = [];
+       if (is_array($response) === TRUE) {
+         // Loop through the response and create a path for each folder item.
+         foreach ($response as $r) {
+           if (isset($r['path']) === TRUE && isset($r['kind']) === TRUE) {
+             $k = $r['kind'];
+             if ($k === 'folder' || $k === 'rootfolder') {
+               if (substr($remotePath, -1) === "/") {
+                 $recursePaths[] = $remotePath . $r['name'];
+               }
+               else {
+                 $recursePaths[] = $remotePath . "/" . $r['name'];
+               }
+             }
+           }
+         }
+       }
 
-      // Add recursion paths to the front of the path list.
-      // This causes us to do a depth-first traversal.
-      $remotePaths = ($recursePaths + $remotePaths);
+       // Add recursion paths to the front of the path list.
+       // This causes us to do a depth-first traversal.
+       $remotePaths = array_merge($recursePaths,$remotePaths);
 
-      if (empty($remotePaths) === FALSE) {
-        print("\n");
-      }
-    }
-  }
+       if (empty($remotePaths) === FALSE) {
+         print("\n");
+       }
+     }
+   }
 
-  return TRUE;
-}
+   return TRUE;
+ }
 
 /**
  * Prints a list of local files and folders.

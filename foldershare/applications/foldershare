@@ -7829,7 +7829,6 @@ function runStat(FolderShareConnect $server, array $options) {
 
   return TRUE;
 }
-
 /**
  * Prints a list of files and folders.
  *
@@ -8076,7 +8075,12 @@ function runLs(FolderShareConnect $server, array $options) {
           if (isset($r['path']) === TRUE && isset($r['kind']) === TRUE) {
             $k = $r['kind'];
             if ($k === 'folder' || $k === 'rootfolder') {
-              $recursePaths[] = $r['path'];
+              if (substr($remotePath, -1) === "/") {
+                $recursePaths[] = $remotePath . $r['name'];
+              }
+              else {
+                $recursePaths[] = $remotePath . "/" . $r['name'];
+              }
             }
           }
         }
@@ -8084,7 +8088,7 @@ function runLs(FolderShareConnect $server, array $options) {
 
       // Add recursion paths to the front of the path list.
       // This causes us to do a depth-first traversal.
-      $remotePaths = ($recursePaths + $remotePaths);
+      $remotePaths = array_merge($recursePaths,$remotePaths);
 
       if (empty($remotePaths) === FALSE) {
         print("\n");
