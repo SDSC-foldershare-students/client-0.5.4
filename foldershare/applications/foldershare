@@ -6508,6 +6508,174 @@ EOS
     'defaultFormat' => '',
     'function' => 'runPut',
   ],
+
+  //
+  //GET local folder contents
+  //
+  'lls' => [
+    'synopsis' => 'lls [OPTIONS] LOCAL_PATH',
+    'brief' => 'List files and folders.',
+    'description' =>
+"List local files and folders.
+
+The command supports a default short form and a long form with the '-l' option.
+Both forms default to sorting items by name:
+  - The short form lists item names in multiple columns.
+  - The long form lists item names and attributes in a single-column list.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.",
+    'flags' => [
+      '-d' => [
+        'brief' => 'List folders without recursion.',
+      ],
+      '-F' => [
+        'brief' => 'Mark folders by adding a "/" suffix.',
+      ],
+      '-i' => [
+        'brief' => 'Show the numeric entity ID for each item.',
+      ],
+      '-l' => [
+        'brief' => 'Show a long form that lists more detail.',
+      ],
+      '-R' => [
+        'brief' => 'Recurse to list folder contents.',
+      ],
+      '-s' => [
+        'brief' => 'Show the size, in bytes, for each item.',
+      ],
+      '-S' => [
+        'brief' => 'Sort by size instead of name.',
+      ],
+      '-t' => [
+        'brief' => 'Sort by modification time instead of name.',
+      ],
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+    ],
+    'synonyms' => [
+      'list',
+      'dir',
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+      'linux',
+      'text',
+    ],
+    'defaultFormat' => 'linux',
+    'function' => 'runLls',
+  ],
+
+  //
+  //Saves the remote path
+  //
+  'cd' => [
+    'synopsis' => 'cd [OPTIONS] REMOTE_PATH',
+    'brief' => 'Saves the remote path.',
+    'description' =>
+"Saves the remote path.
+
+The command supports a default short form and a long form with the '-l' option.
+Both forms default to sorting items by name:
+  - The short form lists item names in multiple columns.
+  - The long form lists item names and attributes in a single-column list.",
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+    ],
+    'synonyms' => [
+
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+      'linux',
+      'text',
+    ],
+    'defaultFormat' => 'linux',
+    'function' => 'runCd',
+  ],
+
+  //
+  //Saves the local path
+  //
+  'lcd' => [
+    'synopsis' => 'lcd [OPTIONS] LOCAL_PATH',
+    'brief' => 'Saves the local path.',
+    'description' =>
+"Saves the local path.",
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+    ],
+    'synonyms' => [
+
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+      'linux',
+      'text',
+    ],
+    'defaultFormat' => 'linux',
+    'function' => 'runLcd',
+  ],
+
+  //
+  //prints the remote path
+  //
+  'pwd' => [
+    'synopsis' => 'pwd',
+    'brief' => 'Print the remote path.',
+    'description' =>
+"Prints the remote path.",
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+    ],
+    'synonyms' => [
+
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+      'linux',
+      'text',
+    ],
+    'defaultFormat' => 'linux',
+    'function' => 'runPwd',
+  ],
+
+  //
+  //prints the local path
+  //
+  'lpwd' => [
+    'synopsis' => 'lpwd',
+    'brief' => 'Print the local path.',
+    'description' =>
+"Prints the local path.",
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+    ],
+    'synonyms' => [
+
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+      'linux',
+      'text',
+    ],
+    'defaultFormat' => 'linux',
+    'function' => 'runLpwd',
+  ],
 ];
 
 /*--------------------------------------------------------------------
@@ -7158,7 +7326,8 @@ function validateCommand(array &$options, bool $exitOnError = TRUE) {
   $pathsAndFlags = parseCommandFlags(
     $appName,
     $commandName,
-    $options['command']);
+    $options['command'],
+    $options['directory']);
   if ($pathsAndFlags === FALSE) {
     return FALSE;
   }
@@ -7202,7 +7371,7 @@ function validateCommand(array &$options, bool $exitOnError = TRUE) {
  *   paths or non-flag arguments, in order. The 'flags' array contains
  *   a list of flags. Returns FALSE on error.
  */
-function parseCommandFlags(string $appName, string $commandName, array $args) {
+function parseCommandFlags(string $appName, string $commandName, array $args, $directory) {
   //
   // Split args
   // ----------
@@ -7223,6 +7392,8 @@ function parseCommandFlags(string $appName, string $commandName, array $args) {
       $paths[] = $arg;
     }
   }
+
+  $paths = fixPaths($commandName, $paths, $directory);
 
   //
   // Expand flags
@@ -7294,6 +7465,93 @@ function parseCommandFlags(string $appName, string $commandName, array $args) {
     'paths' => $paths,
     'flags' => $simplifiedFlags,
   ];
+}
+
+function fixPaths($commandName, $paths, $directory) {
+  $localPaths = $paths;
+  $cdPath = $directory[0];
+  $lcdPath = $directory[1];
+
+  if(count($localPaths)==0) {
+    $localPaths = [''];
+  }
+
+  switch($commandName) {
+    case 'ls':
+    case 'cd':
+    case 'rm':
+    case 'rmdir':
+    case 'mkdir':
+    case 'mv':
+    case 'cp':
+      for($i = 0; $i<count($localPaths); $i++) {
+        $localPaths[$i] = organizeDirectory($localPaths[$i], $cdPath);
+      }
+      break;
+
+    case 'lls':
+    case 'lcd':
+      for($i = 0; $i<count($localPaths); $i++) {
+        $localPaths[$i] = organizeDirectory($localPaths[$i], $lcdPath);
+      }
+      break;
+
+    case 'update':
+      for($i = 2; $i<count($localPaths); $i++) {
+        $localPaths[$i] = organizeDirectory($localPaths[$i], $cdPath);
+      }
+      break;
+
+    case 'put':
+      $localPaths[0] = organizeDirectory($localPaths[0], $lcdPath);
+      $localPaths[1] = organizeDirectory($localPaths[1], $cdPath);
+      break;
+
+    case 'get':
+      $localPaths[0] = organizeDirectory($localPaths[1], $cdPath);
+      if(count($paths)>1) {
+        $localPaths[1] = organizeDirectory($localPaths[0], $lcdPath);
+      }
+      break;
+
+    default:
+      break;
+  }
+
+  return $localPaths;
+}
+
+function organizeDirectory($newPath, $cdPath) {
+
+  $retPath = '';
+  if(strpos($newPath, '..') !== false) {
+    $cdPath = mb_substr($cdPath, 0, strrpos($cdPath, '/'));
+    $retPath = $cdPath;
+  }
+  else if($newPath == '/') {
+    $retPath = '/';
+  }
+  else if(mb_substr($newPath, 0, 1) != "/"){
+    $retPath = $cdPath.'/'.$newPath;
+  }
+  else {
+    $retPath = $newPath;
+  }
+
+  $retPath = clearBackslashes($retPath);
+
+  if($retPath == '') {
+    $retPath = '/';
+  }
+
+  return $retPath;
+}
+
+function clearBackslashes($input) {
+  while(mb_substr($input, -1) === '/') {
+    $input = mb_substr($input, 0, mb_strlen($input)-1);
+  }
+  return $input;
 }
 
 /*--------------------------------------------------------------------
@@ -7835,6 +8093,108 @@ function runLs(FolderShareConnect $server, array $options) {
   }
 
   return TRUE;
+}
+
+/**
+ * Prints a list of local files and folders.
+ */
+function runLls(FolderShareConnect $server, array $options){
+
+  $localPath = "";
+  $localPath = $options['paths'][0];
+
+  $files = scandir($localPath);
+  $files = array_diff(scandir($localPath), array('.', '..'));
+
+  foreach($files as $file) {
+    echo $file."\n";
+  }
+}
+
+/**
+ * Jumps into and saves the remote path
+ */
+function runCd(FolderShareConnect $server, array $options) {
+  if (count($options['paths']) === 1) {
+    $remotePath = $options['paths'][0];
+  }
+  else if (count($options['paths']) === 0){
+    echo "remote path missing"."\n"."\n";
+    return;
+  }
+  else {
+    echo "too many paths"."\n"."\n";
+    return;
+  }
+
+  try {
+    switch ($remotePath) {
+      case '/':
+      case '/private':
+        $response = $server->getRootFolders('private');
+        break;
+
+      case '/public':
+        $response = $server->getRootFolders('public');
+        break;
+
+      case '/shared':
+        $response = $server->getRootFolders('shared');
+        break;
+
+      default:
+        $response = $server->getDescendants($remotePath);
+        break;
+    }
+  }
+  catch (\Exception $e) {
+    $commandName = reset($options['command']);
+    print("$commandName: " . $e->getMessage() . "\n");
+    return $options['directory'][0];
+  }
+
+ $remotePath = clearBackslashes($remotePath);
+  return $remotePath;
+}
+
+/**
+ * Jumps into and saves the local path
+ */
+function runLcd(FolderShareConnect $server, array $options){
+  if (count($options['paths']) === 1) {
+    $localPath = $options['paths'][0];
+  }
+  else if (count($options['paths']) === 0){
+    echo "remote path missing"."\n"."\n";
+    return;
+  }
+  else {
+    echo "too many paths"."\n"."\n";
+    return;
+  }
+
+  if(is_dir($localPath)) {
+    return $localPath;
+  }
+  else{
+    echo "cd: \"".$localPath."\" could not be found.";
+    echo "Please check that the path is correct.";
+    return $options['directory'][1];
+  }
+}
+
+/**
+ * Prints the remote path
+ */
+function runPwd(FolderShareConnect $server, array $options){
+  echo $options['directory'][0]."\n";
+}
+
+/**
+ * Prints the local path
+ */
+function runLpwd(FolderShareConnect $server, array $options){
+  echo $options['directory'][1]."\n";
 }
 
 /**
@@ -8834,71 +9194,156 @@ function runGet(FolderShareConnect $server, array $options) {
  * @internal
  * There is no standard Linux/macOS/BSD command for uploading a file.
  */
-function runPut(FolderShareConnect $server, array $options) {
-  //
-  // Parse options
-  // -------------
-  // Synonyms have already been mapped to primary flag names.
-  $verbose = FALSE;
+ function runPut(FolderShareConnect $server, array $options){
+   $localPath = $options['paths'][0];
+   $remotePath = $options['paths'][1];
 
-  foreach ($options['flags'] as $flagName) {
-    switch ($flagName) {
-      case '-v':
-        $verbose = TRUE;
-        break;
-    }
-  }
+   $options['paths'][0] = $localPath;
+   $options['paths'][1] = $remotePath;
 
-  //
-  // Validate
-  // --------
-  // The command must have exactly two paths. The first is a path to a local
-  // file and the second is a path to a server parent folder.
-  switch (count($options['paths'])) {
-    case 0:
-      $commandName = reset($options['command']);
-      print("$commandName: Missing local and remote file paths.\n");
-      return FALSE;
+   //if the first input is a directory, calls the recursive loop method
+   //uploads a folder and its contents
+   if(is_dir($options['paths'][0])) {
+     loop($options['paths'][0].'/',
+     $options['paths'][1].'/'.basename($options['paths'][0], ""),
+     $server,
+     $options);
+   }
 
-    case 1:
-      $commandName = reset($options['command']);
-      print("$commandName: Missing remote file path.\n");
-      return FALSE;
+   //if the first input is a file, calls the runPutFile method
+   //uploads a file
+   else{
+     runPutFile($server, $options);
+   }
 
-    case 2:
-      $localPath = $options['paths'][0];
-      $remotePath = $options['paths'][1];
-      break;
+ }
 
-    default:
-      $commandName = reset($options['command']);
-      print("$commandName: Too many file paths.\n");
-      return FALSE;
-  }
 
-  //
-  // Execute
-  // -------
-  // Upload the file.
-  try {
-    if ($verbose === TRUE) {
-      print("$localPath\n");
-    }
+ //checks if a $haystack ends with $needle
+ function endsWith($haystack, $needle) {
+   return substr($haystack, -strlen($needle))===$needle;
+ }
 
-    // There is normally no response.
-    $response = $server->upload($localPath, $remotePath);
-    if (empty($response) === FALSE) {
-      print_r($response);
-    }
-  }
-  catch (\Exception $e) {
-    $commandName = reset($options['command']);
-    print("$commandName: " . $e->getMessage() . "\n");
-    return FALSE;
-  }
 
-  return TRUE;
-}
+ function loop($dir, $newPath, FolderShareConnect $server, array $options){
+   //calls the putDir method to make a new directory
+   putDir($newPath, $server, $options);
+
+   //creates an array of all items in the directory
+   $ffs = scandir($dir);
+   unset($ffs[array_search('.', $ffs, true)]);
+   unset($ffs[array_search('..', $ffs, true)]);
+
+   // prevent empty ordered elements
+   if (count($ffs) < 1)
+   return;
+
+   //loops through each item in the directory
+   foreach($ffs as $ff){
+
+     //checks if the item is a directory
+     if(is_dir($dir.$ff)) {
+       //if the item is a directory, calls the loop method again with that item
+       loop($dir.$ff.'/', $newPath.'/'.$ff, $server, $options);
+     }
+     else if(strcmp($ff, ".DS_Store")!=0) {
+       //if the item is a file, uploads that item
+       putFile($dir.$ff, $newPath, $server, $options);
+     }
+   }
+ }
+
+
+ //uses mkDir to make a directory for the "loop" method
+ function putDir($path, FolderShareConnect $server, array $options) {
+   echo "mkdir ".$path."\r\n";
+
+   //updates the $options array to match runMkdir's inputs
+   $inputArr = $options;
+   $inputArr[format] = 'keyvalue';
+   $inputArr[command] = array('mkdir', $path);
+   $inputArr[paths] = array($path);
+   runMkdir($server, $inputArr);
+ }
+
+
+ //uses putFile to make a directory for the "loop" method
+ function putFile($path1, $path2, FolderShareConnect $server, array $options) {
+
+   //updates the $options array to match runPutFile's inputs
+   $inputArr = $options;
+   $inputArr[format] = '';
+   $inputArr[command] = array('put', "$path1", "$path2");
+   $inputArr[paths] = array($path1, $path2);
+   runPutFile($server, $inputArr);
+ }
+
+
+ function runPutFile(FolderShareConnect $server, array $options) {
+   //
+   // Parse options
+   // -------------
+   // Synonyms have already been mapped to primary flag names.
+   $verbose = FALSE;
+
+   foreach ($options['flags'] as $flagName) {
+     switch ($flagName) {
+       case '-v':
+         $verbose = TRUE;
+         break;
+     }
+   }
+
+   //
+   // Validate
+   // --------
+   // The command must have exactly two paths. The first is a path to a local
+   // file and the second is a path to a server parent folder.
+   switch (count($options['paths'])) {
+     case 0:
+       $commandName = reset($options['command']);
+       print("$commandName: Missing local and remote file paths.\n");
+       return FALSE;
+
+     case 1:
+       $commandName = reset($options['command']);
+       print("$commandName: Missing remote file path.\n");
+       return FALSE;
+
+     case 2:
+       $localPath = $options['paths'][0];
+       $remotePath = $options['paths'][1];
+       break;
+
+     default:
+       $commandName = reset($options['command']);
+       print("$commandName: Too many file paths.\n");
+       return FALSE;
+   }
+
+   //
+   // Execute
+   // -------
+   // Upload the file.
+   try {
+     if ($verbose === TRUE) {
+       print("$localPath\n");
+     }
+
+     // There is normally no response.
+     $response = $server->upload($localPath, $remotePath);
+     if (empty($response) === FALSE) {
+       print_r($response);
+     }
+   }
+   catch (\Exception $e) {
+     $commandName = reset($options['command']);
+     print("$commandName: " . $e->getMessage() . "\n");
+     return FALSE;
+   }
+
+   return TRUE;
+ }
 
 /*--------------------------------------------------------------------
  *
@@ -8958,6 +9403,8 @@ catch (\Exception $e) {
   printErrorAndExit($appName, $e->getMessage());
 }
 
+$opstions['directory'] = ['', ''];
+
 //
 // Execute single command
 // ----------------------
@@ -9002,11 +9449,189 @@ if (empty($options['command']) === FALSE) {
   }
 }
 
+function tab($input1, $index){
+
+  $line1 = "";
+  global $options;
+  $p = $options['directory'][0];
+  $input = $input1;
+
+  /*if($input[mb_strlen($input)-1] === '/' And mb_strlen($input) > 1){
+    $input = mb_substr(0, mb_strlen($input)-1);
+  }*/
+
+  if($input[0] !== '/'){
+    $line1 = $p."/".$input;
+  }
+  else{
+    $line1 = $input;
+  }
+
+  $lastSlashPosition = mb_strrpos($line1, '/');
+  if ($lastSlashPosition === FALSE) {
+    $lastSlashPosition = -1;
+    return $Matches;
+  }
+
+  if($lastSlashPosition === (strlen($line1)-1) And $lastSlashPosition !== 0){
+    $parent = mb_substr($line1, 0, $lastSlashPosition);
+    $filename = '';
+  }
+  else if($lastSlashPosition === 0){
+    $parent = '/';
+    $filename = basename($line1);
+  }
+  else{
+    $parent = mb_substr($line1, 0, $lastSlashPosition);
+    $filename = basename($line1);
+  }
+
+  global $options;
+
+  $localOptions = $options;
+  $arr = [];
+  $art = [];
+  $arr[] = 'ls';
+  $arr[] = $parent;
+  $art[] = $parent;
+  $localOptions['command'] = $arr;
+  $localOptions['paths'] = $art;
+
+  $sup = mb_substr($parent, strlen($p)+1).'/';
+
+  $commandName = reset($localOptions['command']);
+  if (validateCommand($localOptions, FALSE) === FALSE) {
+    return;
+  }
+  global $server;
+  try {
+    switch ($parent) {
+      case '/':
+        $server->setReturnFormat('keyvalue');
+      case '/private':
+        $server->setReturnFormat('keyvalue');
+        $response = $server->getRootFolders('private');
+        break;
+
+      case '/public':
+        $server->setReturnFormat('keyvalue');
+        $response = $server->getRootFolders('public');
+        break;
+
+      case '/shared':
+        $server->setReturnFormat('keyvalue');
+        $response = $server->getRootFolders('shared');
+        break;
+
+      default:
+        $server->setReturnFormat('keyvalue');
+        $response = $server->getDescendants($parent);
+        break;
+    }
+  }
+  catch (\Exception $e){
+    $commandName = reset($options['command']);
+    print("$commandName: " . $e->getMessage() . "\n");
+    return FALSE;
+  }
+
+  $formatFlags = [];
+  if($response !== NULL){
+    $response = FolderShareFormat::formatAsLinuxLs($response, $formatFlags);
+  }
+
+  $length = strlen($response);
+  $parts = preg_split('/ {2}/', $response);
+
+  if(strpos($parts[count($parts)-1],' ') === 0 Or $parts[count($parts)-1] === ''){
+    if([count($parts)>1]){
+      unset($parts[count($parts)-1]);
+    }
+  }
+
+  for ($i=count($parts)-1; $i>=0; $i--){
+    if($parts[$i] === ''){
+      unset($parts[$i]);
+    }
+  }
+  array_values($parts);
+
+  if($parent !== '/'){
+    $parent .= '/';
+  }
+
+  foreach ($parts as $part){
+    while($part[count($part)-1] === ' ' Or $part[count($part)-1] === "\n"){
+      $part = ltrim($part);
+      $part = rtrim ($part);
+    }
+
+    $part = rtrim($part);
+    $part = ltrim($part);
+
+    if($filename === '' || $filename === ' '){
+      if($parent == '/'){
+        $Matches[] = $parent.$part;
+      }
+      else if($p !== '/'){
+
+        if($input1[0] == '/'){
+          $Matches[] = $parent.$part;
+        }
+        else{
+          $Matches[] = $part;
+
+          if(strlen($input1) !== 0){
+            $Matches[] = $sup.$part;
+          }
+          $Matches[] = $parent.$part;
+
+        }
+      }
+      else{
+        $Matches[] = $parent.$part;
+      }
+    }
+    else if(strpos($part, $filename)===0){
+
+      if($parent == '/'){
+        $Matches[] = $parent.$part;
+      }
+      else if($p !== '/'){
+
+        if($input1[0] == '/'){
+          $Matches[] = $parent.$part;
+        }
+        else{
+          $Matches[] = $part;
+
+          if(strlen($input1) !== 0){
+            $Matches[] = $sup.$part;
+          }
+          $Matches[] = $parent.$part;
+        }
+
+      }
+      else{
+        $Matches[] = $parent.$part;
+
+      }
+    }
+
+  }
+  if(count($Matches) == 0){
+    $Matches[] = rtrim(ltrim($input));
+  }
+
+  return($Matches);
+}
+
 //
 // Execute multiple commands
 // -------------------------
 // Enter a prompt loop and execute commands as given.
 print("Foldershare shell.\nType 'help' for a list of commands, 'quit' to exit.\n");
+readline_completion_function("tab");
 while (TRUE) {
   try {
     //
@@ -9108,7 +9733,21 @@ while (TRUE) {
     // Dispatch
     // --------
     // Invoke the command.
-    COMMANDS[$commandName]['function']($server, $localOptions);
+    switch($commandName) {
+      case 'cd':
+        $options['directory'][0] =
+        COMMANDS[$commandName]['function']($server, $localOptions);
+        break;
+
+      case 'lcd':
+        $options['directory'][1] =
+        COMMANDS[$commandName]['function']($server, $localOptions);
+        break;
+
+      default:
+        COMMANDS[$commandName]['function']($server, $localOptions);
+        break;
+    }
   }
   catch (\Exception $e) {
     print($e->getMessage());
