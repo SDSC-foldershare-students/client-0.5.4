@@ -6569,6 +6569,59 @@ supported.",
   ],
 
   //
+  // Searches the remote filesystem
+  //
+  'find' => [
+  'synopsis' => 'find [OPTIONS] REMOTE_PATH',
+  'brief' => 'Search remote filesystem.',
+  'description' => <<<'EOS'
+Searches for files in the foldershare filesystem
+EOS
+  ,
+  'flags' => [
+    '--help' => [
+      'brief' => 'Show this help information.',
+    ],
+    '--name' => [
+      'brief' => 'Specify a string to be searched for',
+    ],
+    '-R' => [
+      'brief' => 'Search recursively from file path',
+    ],
+    '--type' => [
+      'brief' => 'Specify type to search for: file, folder, rootFolder, image'
+    ],
+  ],
+  'synonyms' => [],
+  'formats' => [],
+  'defaultFormat' => 'linux',
+  'function' => 'runFind',
+],
+
+//
+// clears the screen
+//
+'clear' => [
+  'synopsis' => 'clear',
+  'brief' => 'clears all current lines.',
+  'description' =>
+"clears the screen.",
+  'flags' => [
+    '--help' => [
+      'brief' => 'Clears Screen.',
+    ],
+  ],
+  'synonyms' => [
+    'cl',
+  ],
+  'formats' => [
+    'full',
+    'keyvalue',
+  ],
+  'defaultFormat' => 'keyvalue',
+  'function' => 'runCl',
+],
+  //
   //Saves the remote path
   //
   'cd' => [
@@ -7901,15 +7954,7 @@ function runFind(FolderShareConnect $server, array $options) {
     $element = $options['command'][$i];
     switch ($element) {
       case '--type':
-        if($options['command'][$i+1] === 'file') {
-          $type = 'file';
-        }
-        if($options['command'][$i+1] === 'folder') {
-          $type = 'folder';
-        }
-        if($options['command'][$i+1] === 'rootfolder') {
-          $type = 'rootFolder';
-        }
+        $type = $options['command'][$i+1];
         $i++;
         break;
       case '-R':
@@ -7999,21 +8044,10 @@ function runFind(FolderShareConnect $server, array $options) {
 
     }
   }
-  //set printing patterns
-  $formatFlags = [];
-  $formatFlags[] = '-l';
-  //print response
-  switch ($options['format']) {
-    case 'linux':
-      print(FolderShareFormat::formatAsLinuxLs($foundOutput, $formatFlags));
-      break;
-    case 'text':
-      print(FolderShareFormat::formatAsText($foundOutput));
-      break;
-    default:
-      print_r($response);
-    }
-    return TRUE;
+  foreach ($foundOutput as $r) {
+    print($r['path'] . "\n");
+  }
+  return True;
 }
 
 function procWildCards($withStars, $withoutStars)
