@@ -22,10 +22,10 @@ scriptFile='script$$.tmp'
 #
 echo "  Setup..."
 cat <<EOF > $scriptFile
-/^<\?php/d
+/^<?php/d
 /^namespace/d
 /^use FolderShare/d
-/^.*require \"FolderShare/d
+/^.*require "FolderShare/d
 EOF
 
 #
